@@ -34,7 +34,7 @@ Get hover information for a symbol in TypeScript code.
 - `code` - The TypeScript code string to analyze
 - `symbolName` - The identifier name to get hover info for (e.g., 'x', 'myFn')
 - `options` - Optional configuration:
-  - `sourceRoot` - Root directory for resolving imports (default: 'src')
+  - `sourceRoot` - Root directory for resolving imports, relative to your project root (where package.json is) (default: 'src')
   - `compilerOptions` - TypeScript compiler options
   - `returnRaw` - Return raw QuickInfo object instead of formatted strings
 
@@ -79,17 +79,30 @@ describe('type tests', { concurrency: false }, () => {
 
 ## Import Resolution
 
-Imports in your code string are resolved relative to `sourceRoot`:
+Imports in your code string are resolved relative to `sourceRoot`, which is resolved relative to your **project root** (where your `package.json` is located).
+
+Given a project structure like:
+```
+/my-project/
+  package.json
+  src/
+    Path.ts
+    types.ts
+```
+
+You can resolve imports regardless of where you run the tests from:
 
 ```typescript
-// With sourceRoot: './src'
+// With sourceRoot: 'src' (default)
 getHoverText(
   'import { Path } from "./Path"\nconst path: Path',
   'path',
-  { sourceRoot: './src' }
+  { sourceRoot: 'src' }
 )
-// Resolves import to: ./src/Path.ts
+// Resolves import to: /my-project/src/Path.ts
 ```
+
+This works whether you run tests from `/my-project`, `/my-project/src`, or anywhere else in the project tree.
 
 ## Advanced Usage
 

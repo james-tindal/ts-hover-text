@@ -1,6 +1,15 @@
 import ts from 'typescript'
 import * as path from 'path'
 import { randomBytes } from 'crypto'
+import { packageDirectorySync } from 'package-directory'
+
+const projectRoot = packageDirectorySync()!
+
+if (!projectRoot)
+	throw Error(
+		'Could not find package.json. ' +
+		'ts-hover-text must be run from within a project with a package.json file.'
+	)
 
 /**
  * Get TypeScript hover text (QuickInfo) for a symbol in a code string.
@@ -29,6 +38,7 @@ export function getHoverText(
 ): string[] | ts.QuickInfo {
 	const opts = { ...defaultOptions, ...options }
 	const virtualFileName = path.join(
+		projectRoot,
 		opts.sourceRoot,
 		`${generateRandomFileName()}.ts`
 	)
@@ -39,12 +49,13 @@ export function getHoverText(
 export interface GetHoverTextOptions {
 	/**
 	 * The root directory where your source files are located.
-	 * Import statements in your code will be resolved relative to this directory.
+	 * Relative to your project root (where package.json is).
+	 * Import statements resolve relative to this directory.
 	 *
 	 * @default 'src'
 	 * @example
-	 * './src' - imports like './types' resolve to './src/types.ts'
-	 * './lib' - imports like './types' resolve to './lib/types.ts'
+	 * 'src' - imports like './types' resolve to <project>/src/types.ts
+	 * 'lib' - imports like './types' resolve to <project>/lib/types.ts
 	 */
 	sourceRoot?: string
 
