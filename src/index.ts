@@ -1,6 +1,6 @@
 import ts from 'typescript'
 import * as path from 'path'
-import { randomBytes } from 'crypto'
+import { randomUUID } from 'crypto'
 import { packageDirectorySync } from 'package-directory'
 
 const projectRoot = packageDirectorySync()!
@@ -11,66 +11,18 @@ if (!projectRoot)
 		'ts-hover-text must be run from within a project with a package.json file.'
 	)
 
-/**
- * Get TypeScript hover text (QuickInfo) for a symbol in a code string.
- *
- * @param code - The TypeScript code string to analyze
- * @param symbolName - The identifier name to get hover info for (e.g., 'x', 'myFn')
- * @param options - Configuration options
- * @returns Hover text as trimmed lines (default) or raw string
- * @throws Error if the symbol is not found, TypeScript program fails, or no hover info available
- * @example getHoverText('const x: number = 1', 'x') // ['const x: number']
- */
-export function getHoverText(
-	code: string,
-	symbolName: string,
-	options?: GetHoverTextOptions & { trimmedLines?: true }
-): string[]
-export function getHoverText(
-	code: string,
-	symbolName: string,
-	options: GetHoverTextOptions & { trimmedLines: false }
-): string
-export function getHoverText(
-	code: string,
-	symbolName: string,
-	options: GetHoverTextOptions = {}
-): string[] | string {
-	const opts = { ...defaultOptions, ...options }
-	const virtualFileName = path.join(
-		projectRoot,
-		opts.sourceRoot,
-		`${generateRandomFileName()}.ts`
-	)
-
-	return getHoverTextInternal(code, symbolName, virtualFileName, opts)
-}
-
-export interface GetHoverTextOptions {
+export interface HoverTextOptions {
 	/**
 	 * The root directory where your source files are located.
 	 * Relative to your project root (where package.json is).
 	 * Import statements resolve relative to this directory.
 	 *
 	 * @default 'src'
-	 * @example
-	 * 'src' - imports like './types' resolve to <project>/src/types.ts
-	 * 'lib' - imports like './types' resolve to <project>/lib/types.ts
 	 */
 	sourceRoot?: string
 
 	/**
-	 * TypeScript compiler options. These control how your code is parsed and
-	 * what features are available.
-	 *
-	 * @default
-	 * {
-	 *   target: ts.ScriptTarget.ES2020,
-	 *   module: ts.ModuleKind.CommonJS,
-	 *   esModuleInterop: true,
-	 *   strict: true,
-	 *   skipLibCheck: true
-	 * }
+	 * TypeScript compiler options.
 	 */
 	compilerOptions?: ts.CompilerOptions
 
@@ -85,14 +37,13 @@ export interface GetHoverTextOptions {
 	/**
 	 * Path to a tsconfig.json file to use for compiler options.
 	 * Relative to project root or absolute path.
-	 * If not specified, looks for tsconfig.json in project root.
 	 *
 	 * @default 'tsconfig.json' (in project root)
 	 */
 	tsConfigPath?: string
 }
 
-const defaultOptions: Required<GetHoverTextOptions> = {
+const defaultOptions: Required<HoverTextOptions> = {
 	sourceRoot: 'src',
 	compilerOptions: {
 		target: ts.ScriptTarget.ES2020,
@@ -105,92 +56,11 @@ const defaultOptions: Required<GetHoverTextOptions> = {
 	tsConfigPath: 'tsconfig.json',
 }
 
-const registry = ts.createDocumentRegistry()
-
-function getHoverTextInternal(
-	code: string,
-	symbolName: string,
-	virtualFileName: string,
-	opts: Required<GetHoverTextOptions>
-): string[] | string {
-
-	const compilerOptions = resolveCompilerOptions(opts)
-
-	const host: ts.LanguageServiceHost = {
-		getScriptFileNames: () => [virtualFileName],
-		getScriptVersion: () => '1',
-		getScriptSnapshot(name) {
-			if (name === virtualFileName)
-				return ts.ScriptSnapshot.fromString(code)
-			if (ts.sys.fileExists(name))
-				return ts.ScriptSnapshot.fromString(ts.sys.readFile(name) || '')
-			return undefined
-		},
-		getCurrentDirectory: () => process.cwd(),
-		getCompilationSettings: () => compilerOptions,
-		getDefaultLibFileName: ts.getDefaultLibFilePath,
-		fileExists: name =>
-			name === virtualFileName || ts.sys.fileExists(name),
-		readFile: (name) =>
-			name === virtualFileName
-				? code
-				: ts.sys.readFile(name),
-		readDirectory: ts.sys.readDirectory,
-		directoryExists: ts.sys.directoryExists,
-		getDirectories: ts.sys.getDirectories,
-		resolveModuleNames: (moduleNames, containingFile) =>
-			moduleNames.map((moduleName) => {
-				const resolved = ts.resolveModuleName(
-					moduleName,
-					containingFile,
-					compilerOptions,
-					ts.sys
-				)
-				return resolved.resolvedModule
-			}),
-	}
-
-	const services = ts.createLanguageService(host, registry)
-
-	const program = services.getProgram()
-	if (!program)
-		throw Error(
-			`Failed to create TypeScript program for virtual file "${virtualFileName}"`
-		)
-
-	const sourceFile = program.getSourceFile(virtualFileName)
-	if (!sourceFile)
-		throw Error(`Source file "${virtualFileName}" not found in program`)
-
-	const pos = findIdentifierPosition(sourceFile, symbolName)
-	if (pos === -1)
-		throw Error(
-			`Symbol "${symbolName}" not found as identifier in code. ` +
-			`Ensure "${symbolName}" appears as a standalone identifier ` +
-			`(not in comments/strings). Code: ${code.slice(0, 200)}` +
-			`${code.length > 200 ? '...' : ''}`
-		)
-
-	const quickInfo = services.getQuickInfoAtPosition(virtualFileName, pos)
-	if (!quickInfo)
-		throw Error(
-			`No hover info available for symbol "${symbolName}" ` +
-			`at position ${pos}. The symbol may not have type information.`
-		)
-
-	const hoverText = ts.displayPartsToString(quickInfo.displayParts)
-	return opts.trimmedLines
-		? hoverText.split('\n').map((line) => line.trim()).filter(Boolean)
-		: hoverText
-}
-
 function resolveCompilerOptions(
-	opts: Required<GetHoverTextOptions>
+	opts: Required<HoverTextOptions>
 ): ts.CompilerOptions {
-	// Merge order: defaults < tsconfig < user compilerOptions
 	let options = { ...defaultOptions.compilerOptions }
 
-	// Try to load from tsconfig
 	const tsConfigPath = path.isAbsolute(opts.tsConfigPath)
 		? opts.tsConfigPath
 		: path.join(projectRoot, opts.tsConfigPath)
@@ -213,7 +83,6 @@ function resolveCompilerOptions(
 		}
 	}
 
-	// Merge user compilerOptions (if they differ from defaults)
 	const hasUserCompilerOptions =
 		opts.compilerOptions !== defaultOptions.compilerOptions
 	if (hasUserCompilerOptions)
@@ -243,5 +112,134 @@ function findIdentifierPosition(
 	return position
 }
 
-const generateRandomFileName = () =>
-	`virtual-${randomBytes(8).toString('hex')}`
+/**
+ * Create a configured getHoverText function.
+ *
+ * @param options - Configuration options (sourceRoot, compilerOptions, etc.)
+ * @returns A getHoverText function configured with the provided options
+ *
+ * @example
+ * ```typescript
+ * import { createHoverText } from 'ts-hover-text'
+ *
+ * const getHoverText = createHoverText({ sourceRoot: 'test' })
+ *
+ * test('my type test', () => {
+ *   const hover = getHoverText('const x: number = 1', 'x')
+ *   expect(hover).toEqual(['const x: number'])
+ * })
+ * ```
+ */
+export function createHoverText(options?: HoverTextOptions) {
+	const opts = { ...defaultOptions, ...options }
+	const compilerOptions = resolveCompilerOptions(opts)
+
+	const virtualFileName = path.join(
+		projectRoot,
+		opts.sourceRoot,
+		`ts-hover-text-${randomUUID()}.ts`
+	)
+	const registry = ts.createDocumentRegistry()
+
+	let currentCode = ''
+	let codeVersion = 0
+
+	const host: ts.LanguageServiceHost = {
+		getScriptFileNames: () => [virtualFileName],
+		getScriptVersion: (fileName) =>
+			String(fileName === virtualFileName ? codeVersion : 1),
+		getScriptSnapshot(name) {
+			if (name === virtualFileName)
+				return ts.ScriptSnapshot.fromString(currentCode)
+			if (ts.sys.fileExists(name))
+				return ts.ScriptSnapshot.fromString(ts.sys.readFile(name) || '')
+			return undefined
+		},
+		getCurrentDirectory: () => process.cwd(),
+		getCompilationSettings: () => compilerOptions,
+		getDefaultLibFileName: ts.getDefaultLibFilePath,
+		fileExists: (name) =>
+			name === virtualFileName || ts.sys.fileExists(name),
+		readFile: (name) =>
+			name === virtualFileName ? currentCode : ts.sys.readFile(name),
+		readDirectory: ts.sys.readDirectory,
+		directoryExists: ts.sys.directoryExists,
+		getDirectories: ts.sys.getDirectories,
+		resolveModuleNames: (moduleNames, containingFile) =>
+			moduleNames.map((moduleName) => {
+				const resolved = ts.resolveModuleName(
+					moduleName,
+					containingFile,
+					compilerOptions,
+					ts.sys
+				)
+				return resolved.resolvedModule
+			}),
+	}
+
+	const services = ts.createLanguageService(host, registry)
+
+	/**
+	 * Get TypeScript hover text (QuickInfo) for a symbol in a code string.
+	 *
+	 * @param code - The TypeScript code string to analyze
+	 * @param symbolName - The identifier name to get hover info for
+	 * @param options - Set trimmedLines to false for raw string output
+	 * @returns Hover text as trimmed lines (default) or raw string
+	 * @throws Error if symbol not found or TypeScript error
+	 */
+	function getHoverText(code: string, symbolName: string): string[]
+	function getHoverText(
+		code: string,
+		symbolName: string,
+		options: { trimmedLines: false }
+	): string
+	function getHoverText(
+		code: string,
+		symbolName: string,
+		options?: { trimmedLines?: boolean }
+	): string[] | string
+	function getHoverText(
+		code: string,
+		symbolName: string,
+		options?: { trimmedLines?: boolean }
+	): string[] | string {
+		currentCode = code
+		codeVersion++
+
+		const program = services.getProgram()
+		if (!program)
+			throw Error(
+				`Failed to create TypeScript program for virtual file "${virtualFileName}"`
+			)
+
+		const sourceFile = program.getSourceFile(virtualFileName)
+		if (!sourceFile)
+			throw Error(
+				`Source file "${virtualFileName}" not found in program`
+			)
+
+		const pos = findIdentifierPosition(sourceFile, symbolName)
+		if (pos === -1)
+			throw Error(
+				`Symbol "${symbolName}" not found as identifier in code. ` +
+				`Ensure "${symbolName}" appears as a standalone identifier ` +
+				`(not in comments/strings). Code: ${code.slice(0, 200)}` +
+				`${code.length > 200 ? '...' : ''}`
+			)
+
+		const quickInfo = services.getQuickInfoAtPosition(virtualFileName, pos)
+		if (!quickInfo)
+			throw Error(
+				`No hover info available for symbol "${symbolName}" ` +
+				`at position ${pos}. The symbol may not have type information.`
+			)
+
+		const hoverText = ts.displayPartsToString(quickInfo.displayParts)
+		return options?.trimmedLines === false
+			? hoverText
+			: hoverText.split('\n').map((line) => line.trim()).filter(Boolean)
+	}
+
+	return getHoverText
+}

@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest'
-import { getHoverText } from '../src/index'
+import { createHoverText } from '../src/index'
 
 const importCode = 'import { foo } from "./fixture"\n'
+const getHoverText = createHoverText({ sourceRoot: 'test' })
 
 describe.sequential('getHoverText', () => {
 	test('returns hover text for simple variable', () => {
@@ -30,12 +31,11 @@ describe.sequential('getHoverText', () => {
 	})
 })
 
-describe('import resolution', () => {
+describe.sequential('import resolution', () => {
 	test('resolves imports from filesystem', () => {
 		const hover = getHoverText(
 			importCode + 'const x = foo',
-			'x',
-			{ sourceRoot: 'test' }
+			'x'
 		)
 		expect(hover).toEqual(['const x: "hello"'])
 	})
@@ -43,14 +43,13 @@ describe('import resolution', () => {
 	test('resolves imported type in type position', () => {
 		const hover = getHoverText(
 			importCode + 'const x: typeof foo = foo',
-			'x',
-			{ sourceRoot: 'test' }
+			'x'
 		)
 		expect(hover).toEqual(['const x: "hello"'])
 	})
 })
 
-describe('performance', () => {
+describe.sequential('performance', () => {
 	test('first call completes in reasonable time', () => {
 		const start = performance.now()
 		getHoverText('const x: number = 1', 'x')
@@ -69,9 +68,9 @@ describe('performance', () => {
 
 	test('import resolution does not significantly slow down', () => {
 		const start = performance.now()
-		getHoverText(importCode + 'const x = foo', 'x', { sourceRoot: 'test' })
-		getHoverText(importCode + 'const y = foo', 'y', { sourceRoot: 'test' })
-		getHoverText(importCode + 'const z = foo', 'z', { sourceRoot: 'test' })
+		getHoverText(importCode + 'const x = foo', 'x')
+		getHoverText(importCode + 'const y = foo', 'y')
+		getHoverText(importCode + 'const z = foo', 'z')
 		const duration = performance.now() - start
 		expect(duration).toBeLessThan(500)
 	})
