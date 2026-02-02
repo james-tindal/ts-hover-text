@@ -17,25 +17,25 @@ if (!projectRoot)
  * @param code - The TypeScript code string to analyze
  * @param symbolName - The identifier name to get hover info for (e.g., 'x', 'myFn')
  * @param options - Configuration options
- * @returns Formatted hover text lines, or raw QuickInfo if returnRaw is true
+ * @returns Hover text as trimmed lines (default) or raw string
  * @throws Error if the symbol is not found, TypeScript program fails, or no hover info available
  * @example getHoverText('const x: number = 1', 'x') // ['const x: number']
  */
 export function getHoverText(
 	code: string,
 	symbolName: string,
-	options?: GetHoverTextOptions & { returnRaw?: false }
+	options?: GetHoverTextOptions & { trimmedLines?: true }
 ): string[]
 export function getHoverText(
 	code: string,
 	symbolName: string,
-	options: GetHoverTextOptions & { returnRaw: true }
-): ts.QuickInfo
+	options: GetHoverTextOptions & { trimmedLines: false }
+): string
 export function getHoverText(
 	code: string,
 	symbolName: string,
 	options: GetHoverTextOptions = {}
-): string[] | ts.QuickInfo {
+): string[] | string {
 	const opts = { ...defaultOptions, ...options }
 	const virtualFileName = path.join(
 		projectRoot,
@@ -75,12 +75,12 @@ export interface GetHoverTextOptions {
 	compilerOptions?: ts.CompilerOptions
 
 	/**
-	 * If true, return the raw QuickInfo object instead of formatted strings.
-	 * Useful if you need access to documentation, tags, or other metadata.
+	 * If true (default), returns array of trimmed lines.
+	 * If false, returns the raw hover string with newlines.
 	 *
-	 * @default false
+	 * @default true
 	 */
-	returnRaw?: boolean
+	trimmedLines?: boolean
 }
 
 const defaultOptions: Required<GetHoverTextOptions> = {
@@ -92,7 +92,7 @@ const defaultOptions: Required<GetHoverTextOptions> = {
 		strict: true,
 		skipLibCheck: true,
 	},
-	returnRaw: false,
+	trimmedLines: true,
 }
 
 // Module-level state for caching - DO NOT export
@@ -106,7 +106,7 @@ function getHoverTextInternal(
 	symbolName: string,
 	virtualFileName: string,
 	opts: Required<GetHoverTextOptions>
-): string[] {
+): string[] | string {
 	currentCode = code
 	currentVirtualFileName = virtualFileName
 	codeVersion++
@@ -174,11 +174,10 @@ function getHoverTextInternal(
 			`at position ${pos}. The symbol may not have type information.`
 		)
 
-	if (opts.returnRaw)
-		return quickInfo as unknown as string[]
-
 	const hoverText = ts.displayPartsToString(quickInfo.displayParts)
-	return hoverText.split('\n').map((line) => line.trim()).filter(Boolean)
+	return opts.trimmedLines
+		? hoverText.split('\n').map((line) => line.trim()).filter(Boolean)
+		: hoverText
 }
 
 function findIdentifierPosition(

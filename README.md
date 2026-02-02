@@ -36,11 +36,11 @@ Get hover information for a symbol in TypeScript code.
 - `options` - Optional configuration:
   - `sourceRoot` - Root directory for resolving imports, relative to your project root (where package.json is) (default: 'src')
   - `compilerOptions` - TypeScript compiler options
-  - `returnRaw` - Return raw QuickInfo object instead of formatted strings
+  - `trimmedLines` - If true (default), returns array of trimmed lines. If false, returns raw hover string
 
 **Returns:**
-- `string[]` - Array of hover text lines (when `returnRaw: false` or omitted)
-- `QuickInfo` - Raw TypeScript QuickInfo object (when `returnRaw: true`)
+- `string[]` - Array of trimmed hover text lines (default)
+- `string` - Hover text with whitespace preserved (when `trimmedLines: false`)
 
 
 ## Sequential Execution Required
@@ -106,21 +106,21 @@ This works whether you run tests from `/my-project`, `/my-project/src`, or anywh
 
 ## Advanced Usage
 
-### Raw QuickInfo
+### Raw String Output
 
-Access the full TypeScript QuickInfo object:
+Get the hover text as a raw string with newlines preserved (useful for snapshots):
 
 ```typescript
 import { getHoverText } from 'ts-hover-text'
 
-const quickInfo = getHoverText(
+const hoverText = getHoverText(
   'const x: number = 1',
   'x',
-  { returnRaw: true }
+  { trimmedLines: false }
 )
 
-// Access documentation, tags, etc.
-console.log(quickInfo.documentation)
+console.log(hoverText)
+// Output: "const x: number"
 ```
 
 ### Custom Compiler Options
