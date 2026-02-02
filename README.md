@@ -35,12 +35,26 @@ Get hover information for a symbol in TypeScript code.
 - `symbolName` - The identifier name to get hover info for (e.g., 'x', 'myFn')
 - `options` - Optional configuration:
   - `sourceRoot` - Root directory for resolving imports, relative to your project root (where package.json is) (default: 'src')
-  - `compilerOptions` - TypeScript compiler options
+  - `compilerOptions` - TypeScript compiler options (see Compiler Options below)
   - `trimmedLines` - If true (default), returns array of trimmed lines. If false, returns raw hover string
+  - `tsConfigPath` - Path to tsconfig.json file (default: 'tsconfig.json' in project root)
 
 **Returns:**
 - `string[]` - Array of trimmed hover text lines (default)
 - `string` - Hover text with whitespace preserved (when `trimmedLines: false`)
+
+
+## Compiler Options
+
+Uses your `tsconfig.json` settings by default. Override specific options:
+
+```typescript
+// Disable strict mode just for this test
+getHoverText(code, 'x', { compilerOptions: { strict: false } })
+
+// Use a different tsconfig
+getHoverText(code, 'x', { tsConfigPath: './tsconfig.test.json' })
+```
 
 
 ## Sequential Execution Required

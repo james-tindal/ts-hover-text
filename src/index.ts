@@ -42,7 +42,7 @@ export function getHoverText(
 		opts.sourceRoot,
 		`${generateRandomFileName()}.ts`
 	)
-	
+
 	return getHoverTextInternal(code, symbolName, virtualFileName, opts)
 }
 
@@ -81,6 +81,15 @@ export interface GetHoverTextOptions {
 	 * @default true
 	 */
 	trimmedLines?: boolean
+
+	/**
+	 * Path to a tsconfig.json file to use for compiler options.
+	 * Relative to project root or absolute path.
+	 * If not specified, looks for tsconfig.json in project root.
+	 *
+	 * @default 'tsconfig.json' (in project root)
+	 */
+	tsConfigPath?: string
 }
 
 const defaultOptions: Required<GetHoverTextOptions> = {
@@ -93,6 +102,7 @@ const defaultOptions: Required<GetHoverTextOptions> = {
 		skipLibCheck: true,
 	},
 	trimmedLines: true,
+	tsConfigPath: 'tsconfig.json',
 }
 
 // Module-level state for caching - DO NOT export
@@ -110,7 +120,9 @@ function getHoverTextInternal(
 	currentCode = code
 	currentVirtualFileName = virtualFileName
 	codeVersion++
-	
+
+	const compilerOptions = resolveCompilerOptions(opts)
+
 	const host: ts.LanguageServiceHost = {
 		getScriptFileNames: () => [virtualFileName],
 		getScriptVersion: fileName =>
@@ -123,7 +135,7 @@ function getHoverTextInternal(
 			return undefined
 		},
 		getCurrentDirectory: () => process.cwd(),
-		getCompilationSettings: () => opts.compilerOptions,
+		getCompilationSettings: () => compilerOptions,
 		getDefaultLibFileName: ts.getDefaultLibFilePath,
 		fileExists: name =>
 			name === virtualFileName || ts.sys.fileExists(name),
@@ -139,7 +151,7 @@ function getHoverTextInternal(
 				const resolved = ts.resolveModuleName(
 					moduleName,
 					containingFile,
-					opts.compilerOptions,
+					compilerOptions,
 					ts.sys
 				)
 				return resolved.resolvedModule
@@ -178,6 +190,44 @@ function getHoverTextInternal(
 	return opts.trimmedLines
 		? hoverText.split('\n').map((line) => line.trim()).filter(Boolean)
 		: hoverText
+}
+
+function resolveCompilerOptions(
+	opts: Required<GetHoverTextOptions>
+): ts.CompilerOptions {
+	// Merge order: defaults < tsconfig < user compilerOptions
+	let options = { ...defaultOptions.compilerOptions }
+
+	// Try to load from tsconfig
+	const tsConfigPath = path.isAbsolute(opts.tsConfigPath)
+		? opts.tsConfigPath
+		: path.join(projectRoot, opts.tsConfigPath)
+
+	if (ts.sys.fileExists(tsConfigPath)) {
+		const configFile = ts.readConfigFile(tsConfigPath, ts.sys.readFile)
+		if (configFile.error) {
+			console.warn(`Warning: Error reading tsconfig at ${tsConfigPath}`)
+		} else {
+			const parsedConfig = ts.parseJsonConfigFileContent(
+				configFile.config,
+				ts.sys,
+				path.dirname(tsConfigPath)
+			)
+
+			if (parsedConfig.errors.length > 0)
+				console.warn(`Warning: Errors parsing tsconfig at ${tsConfigPath}`)
+
+			options = { ...options, ...parsedConfig.options }
+		}
+	}
+
+	// Merge user compilerOptions (if they differ from defaults)
+	const hasUserCompilerOptions =
+		opts.compilerOptions !== defaultOptions.compilerOptions
+	if (hasUserCompilerOptions)
+		options = { ...options, ...opts.compilerOptions }
+
+	return options
 }
 
 function findIdentifierPosition(
