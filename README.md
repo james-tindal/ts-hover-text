@@ -13,9 +13,9 @@ npm i -D ts-hover-text
 ## Quick Start
 
 ```typescript
-import { createHoverText } from 'ts-hover-text'
+import { tsHoverText } from 'ts-hover-text'
 
-const getHoverText = createHoverText({ sourceRoot: 'src' })
+const getHoverText = tsHoverText({ sourceRoot: 'src' })
 
 test('my type test', () => {
   const hover = getHoverText('const x: number = 1', 'x')
@@ -25,7 +25,7 @@ test('my type test', () => {
 
 ## API
 
-### `createHoverText(options?)`
+### `tsHoverText(options?)`
 
 Create a configured `getHoverText` function. Call this once per test file.
 
@@ -80,7 +80,7 @@ test('object type inference', () => {
 **Test with imports:**
 ```typescript
 // test/fixture.ts: export const foo = 'hello'
-const getHoverText = createHoverText({ sourceRoot: 'test' })
+const getHoverText = tsHoverText({ sourceRoot: 'test' })
 
 test('resolves imports', () => {
   const hover = getHoverText(

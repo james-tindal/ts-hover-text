@@ -120,9 +120,9 @@ function findIdentifierPosition(
  *
  * @example
  * ```typescript
- * import { createHoverText } from 'ts-hover-text'
+ * import { tsHoverText } from 'ts-hover-text'
  *
- * const getHoverText = createHoverText({ sourceRoot: 'test' })
+ * const getHoverText = tsHoverText({ sourceRoot: 'test' })
  *
  * test('my type test', () => {
  *   const hover = getHoverText('const x: number = 1', 'x')
@@ -130,7 +130,7 @@ function findIdentifierPosition(
  * })
  * ```
  */
-export function createHoverText(options?: HoverTextOptions) {
+export function tsHoverText(options?: HoverTextOptions) {
 	const opts = { ...defaultOptions, ...options }
 	const compilerOptions = resolveCompilerOptions(opts)
 

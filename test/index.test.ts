@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest'
-import { createHoverText } from '../src/index'
+import { tsHoverText } from '../src/index'
 
 const importCode = 'import { foo } from "./fixture"\n'
-const getHoverText = createHoverText({ sourceRoot: 'test' })
+const getHoverText = tsHoverText({ sourceRoot: 'test' })
 
 describe.sequential('getHoverText', () => {
 	test('returns hover text for simple variable', () => {
