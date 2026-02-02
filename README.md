@@ -65,9 +65,15 @@ The first call parses TypeScript lib and source directory files and takes around
 
 **Test type inference:**
 ```typescript
-test('infers number type', () => {
-  const hover = getHoverText('const x = 1', 'x')
-  expect(hover).toEqual(['const x: 1'])
+/* eslint-disable @stylistic/indent */
+test('object type inference', () => {
+  const hover = getHoverText('const obj: { a: string; b: number }', 'obj')
+  expect(hover).toEqual([
+    'const obj: {',
+      'a: string;',
+      'b: number;',
+    '}',
+  ])
 })
 ```
 
@@ -83,11 +89,4 @@ test('resolves imports', () => {
   )
   expect(hover).toEqual(['const x: "hello"'])
 })
-```
-
-**Raw string output:**
-```typescript
-const getHoverText = createHoverText({ trimmedLines: false })
-const hover = getHoverText('const x: number = 1', 'x')
-// Returns: "const x: number"
 ```
