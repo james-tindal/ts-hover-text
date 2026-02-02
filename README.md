@@ -7,7 +7,7 @@ Get TypeScript hover text (QuickInfo) for a symbol in a code string. Use this to
 ```bash
 pnpm add -D ts-hover-text
 # or
-npm add -D ts-hover-text
+npm i -D ts-hover-text
 ```
 
 ## Quick Start
