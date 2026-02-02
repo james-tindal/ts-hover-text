@@ -105,10 +105,6 @@ const defaultOptions: Required<GetHoverTextOptions> = {
 	tsConfigPath: 'tsconfig.json',
 }
 
-// Module-level state for caching - DO NOT export
-let currentCode = ''
-let currentVirtualFileName = ''
-let codeVersion = 0
 const registry = ts.createDocumentRegistry()
 
 function getHoverTextInternal(
@@ -117,19 +113,15 @@ function getHoverTextInternal(
 	virtualFileName: string,
 	opts: Required<GetHoverTextOptions>
 ): string[] | string {
-	currentCode = code
-	currentVirtualFileName = virtualFileName
-	codeVersion++
 
 	const compilerOptions = resolveCompilerOptions(opts)
 
 	const host: ts.LanguageServiceHost = {
 		getScriptFileNames: () => [virtualFileName],
-		getScriptVersion: fileName =>
-			String(fileName === virtualFileName ? codeVersion : 1),
+		getScriptVersion: () => '1',
 		getScriptSnapshot(name) {
 			if (name === virtualFileName)
-				return ts.ScriptSnapshot.fromString(currentCode)
+				return ts.ScriptSnapshot.fromString(code)
 			if (ts.sys.fileExists(name))
 				return ts.ScriptSnapshot.fromString(ts.sys.readFile(name) || '')
 			return undefined
@@ -141,7 +133,7 @@ function getHoverTextInternal(
 			name === virtualFileName || ts.sys.fileExists(name),
 		readFile: (name) =>
 			name === virtualFileName
-				? currentCode
+				? code
 				: ts.sys.readFile(name),
 		readDirectory: ts.sys.readDirectory,
 		directoryExists: ts.sys.directoryExists,
